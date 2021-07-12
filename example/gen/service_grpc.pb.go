@@ -99,3 +99,89 @@ var GreetService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "service.proto",
 }
+
+// KitsuServiceClient is the client API for KitsuService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type KitsuServiceClient interface {
+	GetAnime(ctx context.Context, in *KitsuAnimeRequest, opts ...grpc.CallOption) (*KitsuAnimeResponse, error)
+}
+
+type kitsuServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewKitsuServiceClient(cc grpc.ClientConnInterface) KitsuServiceClient {
+	return &kitsuServiceClient{cc}
+}
+
+func (c *kitsuServiceClient) GetAnime(ctx context.Context, in *KitsuAnimeRequest, opts ...grpc.CallOption) (*KitsuAnimeResponse, error) {
+	out := new(KitsuAnimeResponse)
+	err := c.cc.Invoke(ctx, "/myservice.KitsuService/getAnime", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// KitsuServiceServer is the server API for KitsuService service.
+// All implementations must embed UnimplementedKitsuServiceServer
+// for forward compatibility
+type KitsuServiceServer interface {
+	GetAnime(context.Context, *KitsuAnimeRequest) (*KitsuAnimeResponse, error)
+	mustEmbedUnimplementedKitsuServiceServer()
+}
+
+// UnimplementedKitsuServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedKitsuServiceServer struct {
+}
+
+func (UnimplementedKitsuServiceServer) GetAnime(context.Context, *KitsuAnimeRequest) (*KitsuAnimeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAnime not implemented")
+}
+func (UnimplementedKitsuServiceServer) mustEmbedUnimplementedKitsuServiceServer() {}
+
+// UnsafeKitsuServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to KitsuServiceServer will
+// result in compilation errors.
+type UnsafeKitsuServiceServer interface {
+	mustEmbedUnimplementedKitsuServiceServer()
+}
+
+func RegisterKitsuServiceServer(s grpc.ServiceRegistrar, srv KitsuServiceServer) {
+	s.RegisterService(&KitsuService_ServiceDesc, srv)
+}
+
+func _KitsuService_GetAnime_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(KitsuAnimeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KitsuServiceServer).GetAnime(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/myservice.KitsuService/getAnime",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KitsuServiceServer).GetAnime(ctx, req.(*KitsuAnimeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// KitsuService_ServiceDesc is the grpc.ServiceDesc for KitsuService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var KitsuService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "myservice.KitsuService",
+	HandlerType: (*KitsuServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "getAnime",
+			Handler:    _KitsuService_GetAnime_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "service.proto",
+}

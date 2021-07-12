@@ -68,8 +68,61 @@ func (c *GreetServiceHTTPClient) GetPost(ctx context.Context, in *GetPostRequest
 		if err = proto.Unmarshal(body, &rs); err != nil {
 			return
 		}
-	case "application/json":
-		if err = protojson.Unmarshal(body, &rs); err != nil {
+	case "application/json", "application/vnd.api+json":
+		pj := protojson.UnmarshalOptions{DiscardUnknown: true}
+		if err = pj.Unmarshal(body, &rs); err != nil {
+			return
+		}
+	default:
+		return nil, fmt.Errorf("unknown response content type %q", ct)
+	}
+	return &rs, nil
+}
+
+// KitsuServiceHTTPClient is the http client.
+type KitsuServiceHTTPClient struct {
+	baseURL string
+	client  *http.Client
+}
+
+// NewKitsuServiceHTTPClient returns KitsuServiceHTTPClient
+func NewKitsuServiceHTTPClient(baseURL string, client *http.Client) *KitsuServiceHTTPClient {
+	if client == nil {
+		client = http.DefaultClient
+	}
+	return &KitsuServiceHTTPClient{
+		baseURL: baseURL,
+		client:  client,
+	}
+}
+
+// GetAnime returns KitsuAnimeResponse
+func (c *KitsuServiceHTTPClient) GetAnime(ctx context.Context, in *KitsuAnimeRequest, opts ...grpc.CallOption) (out *KitsuAnimeResponse, err error) {
+	var req *http.Request
+	req, err = http.NewRequest("GET", c.baseURL+"/api/edge/anime", nil)
+	if err != nil {
+		return
+	}
+	req.URL.RawQuery = in.QueryString().Encode()
+	req = req.WithContext(ctx)
+	var res *http.Response
+	if res, err = c.client.Do(req); err != nil {
+		return
+	}
+	defer res.Body.Close()
+	var rs KitsuAnimeResponse
+	var body []byte
+	if body, err = ioutil.ReadAll(res.Body); err != nil {
+		return
+	}
+	switch ct, _, _ := mime.ParseMediaType(res.Header.Get("Content-Type")); ct {
+	case "application/protobuf", "application/x-protobuf":
+		if err = proto.Unmarshal(body, &rs); err != nil {
+			return
+		}
+	case "application/json", "application/vnd.api+json":
+		pj := protojson.UnmarshalOptions{DiscardUnknown: true}
+		if err = pj.Unmarshal(body, &rs); err != nil {
 			return
 		}
 	default:
@@ -152,5 +205,509 @@ func (u *Nest2) QueryString() url.Values {
 	var q = url.Values{}
 	q.Set("k", strconv.FormatInt(int64(u.K), 10))
 	q.Set("heu", u.Heu)
+	return q
+}
+
+// QueryString returns http url.Values of KitsuAnimeRequest
+func (u *KitsuAnimeRequest) QueryString() url.Values {
+	var q = url.Values{}
+	if u.Page != nil {
+		for k, v := range u.Page {
+			q.Set("page["+k+"]", v)
+		}
+	}
+	return q
+}
+
+// QueryString returns http url.Values of KitsuAnimeImageDimension
+func (u *KitsuAnimeImageDimension) QueryString() url.Values {
+	var q = url.Values{}
+	q.Set("width", strconv.FormatInt(int64(u.Width), 10))
+	q.Set("height", strconv.FormatInt(int64(u.Height), 10))
+	return q
+}
+
+// QueryString returns http url.Values of KitsuAnimeImageMeta
+func (u *KitsuAnimeImageMeta) QueryString() url.Values {
+	var q = url.Values{}
+	if u.Dimensions != nil {
+		for k, v := range u.Dimensions {
+			q.Set("dimensions["+k+"][width]", strconv.FormatInt(int64(v.Width), 10))
+			q.Set("dimensions["+k+"][width][height]", strconv.FormatInt(int64(v.Height), 10))
+		}
+	}
+	return q
+}
+
+// QueryString returns http url.Values of KitsuAnimeImage
+func (u *KitsuAnimeImage) QueryString() url.Values {
+	var q = url.Values{}
+	q.Set("tiny", u.Tiny)
+	q.Set("small", u.Small)
+	q.Set("medium", u.Medium)
+	q.Set("large", u.Large)
+	q.Set("original", u.Original)
+	if u.Meta != nil {
+		if u.Meta.Dimensions != nil {
+			for k, v := range u.Meta.Dimensions {
+				q.Set("meta.dimensions["+k+"][width]", strconv.FormatInt(int64(v.Width), 10))
+				q.Set("meta.dimensions["+k+"][width][height]", strconv.FormatInt(int64(v.Height), 10))
+			}
+		}
+	}
+	return q
+}
+
+// QueryString returns http url.Values of KitsuAnimeAttributes
+func (u *KitsuAnimeAttributes) QueryString() url.Values {
+	var q = url.Values{}
+	q.Set("createdAt", u.CreatedAt)
+	q.Set("updatedAt", u.UpdatedAt)
+	q.Set("slug", u.Slug)
+	q.Set("synopsis", u.Synopsis)
+	q.Set("description", u.Description)
+	q.Set("coverImageTopOffset", strconv.FormatInt(int64(u.CoverImageTopOffset), 10))
+	if u.Titles != nil {
+		for k, v := range u.Titles {
+			q.Set("titles["+k+"]", v)
+		}
+	}
+	q.Set("canonicalTitle", u.CanonicalTitle)
+	q.Set("averageRating", u.AverageRating)
+	if u.RatingFrequencies != nil {
+		for k, v := range u.RatingFrequencies {
+			q.Set("ratingFrequencies["+k+"]", v)
+		}
+	}
+	q.Set("userCount", strconv.FormatInt(u.UserCount, 10))
+	q.Set("favoritesCount", strconv.FormatInt(u.FavoritesCount, 10))
+	q.Set("startDate", u.StartDate)
+	q.Set("endDate", u.EndDate)
+	q.Set("nextRelease", u.NextRelease)
+	q.Set("popularityRank", strconv.FormatInt(int64(u.PopularityRank), 10))
+	q.Set("ratingRank", strconv.FormatInt(int64(u.RatingRank), 10))
+	q.Set("ageRating", u.AgeRating)
+	q.Set("ageRatingGuide", u.AgeRatingGuide)
+	q.Set("subtype", u.Subtype)
+	q.Set("status", u.Status)
+	q.Set("tba", u.Tba)
+	if u.PosterImage != nil {
+		q.Set("posterImage.tiny", u.PosterImage.Tiny)
+		q.Set("posterImage.small", u.PosterImage.Small)
+		q.Set("posterImage.medium", u.PosterImage.Medium)
+		q.Set("posterImage.large", u.PosterImage.Large)
+		q.Set("posterImage.original", u.PosterImage.Original)
+		if u.PosterImage.Meta != nil {
+			if u.PosterImage.Meta.Dimensions != nil {
+				for k, v := range u.PosterImage.Meta.Dimensions {
+					q.Set("posterImage.meta.dimensions["+k+"][width]", strconv.FormatInt(int64(v.Width), 10))
+					q.Set("posterImage.meta.dimensions["+k+"][width][height]", strconv.FormatInt(int64(v.Height), 10))
+				}
+			}
+		}
+	}
+	if u.CoverImage != nil {
+		q.Set("coverImage.tiny", u.CoverImage.Tiny)
+		q.Set("coverImage.small", u.CoverImage.Small)
+		q.Set("coverImage.medium", u.CoverImage.Medium)
+		q.Set("coverImage.large", u.CoverImage.Large)
+		q.Set("coverImage.original", u.CoverImage.Original)
+		if u.CoverImage.Meta != nil {
+			if u.CoverImage.Meta.Dimensions != nil {
+				for k, v := range u.CoverImage.Meta.Dimensions {
+					q.Set("coverImage.meta.dimensions["+k+"][width]", strconv.FormatInt(int64(v.Width), 10))
+					q.Set("coverImage.meta.dimensions["+k+"][width][height]", strconv.FormatInt(int64(v.Height), 10))
+				}
+			}
+		}
+	}
+	q.Set("episodeCount", strconv.FormatInt(int64(u.EpisodeCount), 10))
+	q.Set("episodeLength", strconv.FormatInt(int64(u.EpisodeLength), 10))
+	q.Set("totalLength", strconv.FormatInt(int64(u.TotalLength), 10))
+	q.Set("youtubeVideoId", u.YoutubeVideoId)
+	q.Set("showType", u.ShowType)
+	tm0 := "false"
+	if u.Nsfw {
+		tm0 = "true"
+	}
+	q.Set("nsfw", tm0)
+	return q
+}
+
+// QueryString returns http url.Values of KitsuAnimeLinks
+func (u *KitsuAnimeLinks) QueryString() url.Values {
+	var q = url.Values{}
+	q.Set("self", u.Self)
+	q.Set("related", u.Related)
+	q.Set("next", u.Next)
+	q.Set("last", u.Last)
+	return q
+}
+
+// QueryString returns http url.Values of KitsuAnimeRelationKitsuAnimeItemItem
+func (u *KitsuAnimeRelationKitsuAnimeItemItem) QueryString() url.Values {
+	var q = url.Values{}
+	if u.Links != nil {
+		q.Set("links.self", u.Links.Self)
+		q.Set("links.related", u.Links.Related)
+		q.Set("links.next", u.Links.Next)
+		q.Set("links.last", u.Links.Last)
+	}
+	return q
+}
+
+// QueryString returns http url.Values of KitsuAnimeRelationships
+func (u *KitsuAnimeRelationships) QueryString() url.Values {
+	var q = url.Values{}
+	if u.Genres != nil {
+		if u.Genres.Links != nil {
+			q.Set("genres.links.self", u.Genres.Links.Self)
+			q.Set("genres.links.related", u.Genres.Links.Related)
+			q.Set("genres.links.next", u.Genres.Links.Next)
+			q.Set("genres.links.last", u.Genres.Links.Last)
+		}
+	}
+	if u.Categories != nil {
+		if u.Categories.Links != nil {
+			q.Set("categories.links.self", u.Categories.Links.Self)
+			q.Set("categories.links.related", u.Categories.Links.Related)
+			q.Set("categories.links.next", u.Categories.Links.Next)
+			q.Set("categories.links.last", u.Categories.Links.Last)
+		}
+	}
+	if u.Castings != nil {
+		if u.Castings.Links != nil {
+			q.Set("castings.links.self", u.Castings.Links.Self)
+			q.Set("castings.links.related", u.Castings.Links.Related)
+			q.Set("castings.links.next", u.Castings.Links.Next)
+			q.Set("castings.links.last", u.Castings.Links.Last)
+		}
+	}
+	if u.Installments != nil {
+		if u.Installments.Links != nil {
+			q.Set("installments.links.self", u.Installments.Links.Self)
+			q.Set("installments.links.related", u.Installments.Links.Related)
+			q.Set("installments.links.next", u.Installments.Links.Next)
+			q.Set("installments.links.last", u.Installments.Links.Last)
+		}
+	}
+	if u.Mappings != nil {
+		if u.Mappings.Links != nil {
+			q.Set("mappings.links.self", u.Mappings.Links.Self)
+			q.Set("mappings.links.related", u.Mappings.Links.Related)
+			q.Set("mappings.links.next", u.Mappings.Links.Next)
+			q.Set("mappings.links.last", u.Mappings.Links.Last)
+		}
+	}
+	if u.Reviews != nil {
+		if u.Reviews.Links != nil {
+			q.Set("reviews.links.self", u.Reviews.Links.Self)
+			q.Set("reviews.links.related", u.Reviews.Links.Related)
+			q.Set("reviews.links.next", u.Reviews.Links.Next)
+			q.Set("reviews.links.last", u.Reviews.Links.Last)
+		}
+	}
+	if u.MediaRelationships != nil {
+		if u.MediaRelationships.Links != nil {
+			q.Set("mediaRelationships.links.self", u.MediaRelationships.Links.Self)
+			q.Set("mediaRelationships.links.related", u.MediaRelationships.Links.Related)
+			q.Set("mediaRelationships.links.next", u.MediaRelationships.Links.Next)
+			q.Set("mediaRelationships.links.last", u.MediaRelationships.Links.Last)
+		}
+	}
+	if u.Characters != nil {
+		if u.Characters.Links != nil {
+			q.Set("characters.links.self", u.Characters.Links.Self)
+			q.Set("characters.links.related", u.Characters.Links.Related)
+			q.Set("characters.links.next", u.Characters.Links.Next)
+			q.Set("characters.links.last", u.Characters.Links.Last)
+		}
+	}
+	if u.Staff != nil {
+		if u.Staff.Links != nil {
+			q.Set("staff.links.self", u.Staff.Links.Self)
+			q.Set("staff.links.related", u.Staff.Links.Related)
+			q.Set("staff.links.next", u.Staff.Links.Next)
+			q.Set("staff.links.last", u.Staff.Links.Last)
+		}
+	}
+	if u.Productions != nil {
+		if u.Productions.Links != nil {
+			q.Set("productions.links.self", u.Productions.Links.Self)
+			q.Set("productions.links.related", u.Productions.Links.Related)
+			q.Set("productions.links.next", u.Productions.Links.Next)
+			q.Set("productions.links.last", u.Productions.Links.Last)
+		}
+	}
+	if u.Quotes != nil {
+		if u.Quotes.Links != nil {
+			q.Set("quotes.links.self", u.Quotes.Links.Self)
+			q.Set("quotes.links.related", u.Quotes.Links.Related)
+			q.Set("quotes.links.next", u.Quotes.Links.Next)
+			q.Set("quotes.links.last", u.Quotes.Links.Last)
+		}
+	}
+	if u.Episodes != nil {
+		if u.Episodes.Links != nil {
+			q.Set("episodes.links.self", u.Episodes.Links.Self)
+			q.Set("episodes.links.related", u.Episodes.Links.Related)
+			q.Set("episodes.links.next", u.Episodes.Links.Next)
+			q.Set("episodes.links.last", u.Episodes.Links.Last)
+		}
+	}
+	if u.StreamingLinks != nil {
+		if u.StreamingLinks.Links != nil {
+			q.Set("streamingLinks.links.self", u.StreamingLinks.Links.Self)
+			q.Set("streamingLinks.links.related", u.StreamingLinks.Links.Related)
+			q.Set("streamingLinks.links.next", u.StreamingLinks.Links.Next)
+			q.Set("streamingLinks.links.last", u.StreamingLinks.Links.Last)
+		}
+	}
+	if u.AnimeProductions != nil {
+		if u.AnimeProductions.Links != nil {
+			q.Set("animeProductions.links.self", u.AnimeProductions.Links.Self)
+			q.Set("animeProductions.links.related", u.AnimeProductions.Links.Related)
+			q.Set("animeProductions.links.next", u.AnimeProductions.Links.Next)
+			q.Set("animeProductions.links.last", u.AnimeProductions.Links.Last)
+		}
+	}
+	if u.AnimeCharacters != nil {
+		if u.AnimeCharacters.Links != nil {
+			q.Set("animeCharacters.links.self", u.AnimeCharacters.Links.Self)
+			q.Set("animeCharacters.links.related", u.AnimeCharacters.Links.Related)
+			q.Set("animeCharacters.links.next", u.AnimeCharacters.Links.Next)
+			q.Set("animeCharacters.links.last", u.AnimeCharacters.Links.Last)
+		}
+	}
+	if u.AnimeStaff != nil {
+		if u.AnimeStaff.Links != nil {
+			q.Set("animeStaff.links.self", u.AnimeStaff.Links.Self)
+			q.Set("animeStaff.links.related", u.AnimeStaff.Links.Related)
+			q.Set("animeStaff.links.next", u.AnimeStaff.Links.Next)
+			q.Set("animeStaff.links.last", u.AnimeStaff.Links.Last)
+		}
+	}
+	return q
+}
+
+// QueryString returns http url.Values of KitsuAnimeItem
+func (u *KitsuAnimeItem) QueryString() url.Values {
+	var q = url.Values{}
+	q.Set("id", u.Id)
+	q.Set("type", u.Type)
+	if u.Links != nil {
+		q.Set("links.self", u.Links.Self)
+		q.Set("links.related", u.Links.Related)
+		q.Set("links.next", u.Links.Next)
+		q.Set("links.last", u.Links.Last)
+	}
+	if u.Attributes != nil {
+		q.Set("attributes.createdAt", u.Attributes.CreatedAt)
+		q.Set("attributes.updatedAt", u.Attributes.UpdatedAt)
+		q.Set("attributes.slug", u.Attributes.Slug)
+		q.Set("attributes.synopsis", u.Attributes.Synopsis)
+		q.Set("attributes.description", u.Attributes.Description)
+		q.Set("attributes.coverImageTopOffset", strconv.FormatInt(int64(u.Attributes.CoverImageTopOffset), 10))
+		if u.Attributes.Titles != nil {
+			for k, v := range u.Attributes.Titles {
+				q.Set("attributes.titles["+k+"]", v)
+			}
+		}
+		q.Set("attributes.canonicalTitle", u.Attributes.CanonicalTitle)
+		q.Set("attributes.averageRating", u.Attributes.AverageRating)
+		if u.Attributes.RatingFrequencies != nil {
+			for k, v := range u.Attributes.RatingFrequencies {
+				q.Set("attributes.ratingFrequencies["+k+"]", v)
+			}
+		}
+		q.Set("attributes.userCount", strconv.FormatInt(u.Attributes.UserCount, 10))
+		q.Set("attributes.favoritesCount", strconv.FormatInt(u.Attributes.FavoritesCount, 10))
+		q.Set("attributes.startDate", u.Attributes.StartDate)
+		q.Set("attributes.endDate", u.Attributes.EndDate)
+		q.Set("attributes.nextRelease", u.Attributes.NextRelease)
+		q.Set("attributes.popularityRank", strconv.FormatInt(int64(u.Attributes.PopularityRank), 10))
+		q.Set("attributes.ratingRank", strconv.FormatInt(int64(u.Attributes.RatingRank), 10))
+		q.Set("attributes.ageRating", u.Attributes.AgeRating)
+		q.Set("attributes.ageRatingGuide", u.Attributes.AgeRatingGuide)
+		q.Set("attributes.subtype", u.Attributes.Subtype)
+		q.Set("attributes.status", u.Attributes.Status)
+		q.Set("attributes.tba", u.Attributes.Tba)
+		if u.Attributes.PosterImage != nil {
+			q.Set("attributes.posterImage.tiny", u.Attributes.PosterImage.Tiny)
+			q.Set("attributes.posterImage.small", u.Attributes.PosterImage.Small)
+			q.Set("attributes.posterImage.medium", u.Attributes.PosterImage.Medium)
+			q.Set("attributes.posterImage.large", u.Attributes.PosterImage.Large)
+			q.Set("attributes.posterImage.original", u.Attributes.PosterImage.Original)
+			if u.Attributes.PosterImage.Meta != nil {
+				if u.Attributes.PosterImage.Meta.Dimensions != nil {
+					for k, v := range u.Attributes.PosterImage.Meta.Dimensions {
+						q.Set("attributes.posterImage.meta.dimensions["+k+"][width]", strconv.FormatInt(int64(v.Width), 10))
+						q.Set("attributes.posterImage.meta.dimensions["+k+"][width][height]", strconv.FormatInt(int64(v.Height), 10))
+					}
+				}
+			}
+		}
+		if u.Attributes.CoverImage != nil {
+			q.Set("attributes.coverImage.tiny", u.Attributes.CoverImage.Tiny)
+			q.Set("attributes.coverImage.small", u.Attributes.CoverImage.Small)
+			q.Set("attributes.coverImage.medium", u.Attributes.CoverImage.Medium)
+			q.Set("attributes.coverImage.large", u.Attributes.CoverImage.Large)
+			q.Set("attributes.coverImage.original", u.Attributes.CoverImage.Original)
+			if u.Attributes.CoverImage.Meta != nil {
+				if u.Attributes.CoverImage.Meta.Dimensions != nil {
+					for k, v := range u.Attributes.CoverImage.Meta.Dimensions {
+						q.Set("attributes.coverImage.meta.dimensions["+k+"][width]", strconv.FormatInt(int64(v.Width), 10))
+						q.Set("attributes.coverImage.meta.dimensions["+k+"][width][height]", strconv.FormatInt(int64(v.Height), 10))
+					}
+				}
+			}
+		}
+		q.Set("attributes.episodeCount", strconv.FormatInt(int64(u.Attributes.EpisodeCount), 10))
+		q.Set("attributes.episodeLength", strconv.FormatInt(int64(u.Attributes.EpisodeLength), 10))
+		q.Set("attributes.totalLength", strconv.FormatInt(int64(u.Attributes.TotalLength), 10))
+		q.Set("attributes.youtubeVideoId", u.Attributes.YoutubeVideoId)
+		q.Set("attributes.showType", u.Attributes.ShowType)
+		tm0 := "false"
+		if u.Attributes.Nsfw {
+			tm0 = "true"
+		}
+		q.Set("attributes.nsfw", tm0)
+	}
+	if u.Relationships != nil {
+		if u.Relationships.Genres != nil {
+			if u.Relationships.Genres.Links != nil {
+				q.Set("relationships.genres.links.self", u.Relationships.Genres.Links.Self)
+				q.Set("relationships.genres.links.related", u.Relationships.Genres.Links.Related)
+				q.Set("relationships.genres.links.next", u.Relationships.Genres.Links.Next)
+				q.Set("relationships.genres.links.last", u.Relationships.Genres.Links.Last)
+			}
+		}
+		if u.Relationships.Categories != nil {
+			if u.Relationships.Categories.Links != nil {
+				q.Set("relationships.categories.links.self", u.Relationships.Categories.Links.Self)
+				q.Set("relationships.categories.links.related", u.Relationships.Categories.Links.Related)
+				q.Set("relationships.categories.links.next", u.Relationships.Categories.Links.Next)
+				q.Set("relationships.categories.links.last", u.Relationships.Categories.Links.Last)
+			}
+		}
+		if u.Relationships.Castings != nil {
+			if u.Relationships.Castings.Links != nil {
+				q.Set("relationships.castings.links.self", u.Relationships.Castings.Links.Self)
+				q.Set("relationships.castings.links.related", u.Relationships.Castings.Links.Related)
+				q.Set("relationships.castings.links.next", u.Relationships.Castings.Links.Next)
+				q.Set("relationships.castings.links.last", u.Relationships.Castings.Links.Last)
+			}
+		}
+		if u.Relationships.Installments != nil {
+			if u.Relationships.Installments.Links != nil {
+				q.Set("relationships.installments.links.self", u.Relationships.Installments.Links.Self)
+				q.Set("relationships.installments.links.related", u.Relationships.Installments.Links.Related)
+				q.Set("relationships.installments.links.next", u.Relationships.Installments.Links.Next)
+				q.Set("relationships.installments.links.last", u.Relationships.Installments.Links.Last)
+			}
+		}
+		if u.Relationships.Mappings != nil {
+			if u.Relationships.Mappings.Links != nil {
+				q.Set("relationships.mappings.links.self", u.Relationships.Mappings.Links.Self)
+				q.Set("relationships.mappings.links.related", u.Relationships.Mappings.Links.Related)
+				q.Set("relationships.mappings.links.next", u.Relationships.Mappings.Links.Next)
+				q.Set("relationships.mappings.links.last", u.Relationships.Mappings.Links.Last)
+			}
+		}
+		if u.Relationships.Reviews != nil {
+			if u.Relationships.Reviews.Links != nil {
+				q.Set("relationships.reviews.links.self", u.Relationships.Reviews.Links.Self)
+				q.Set("relationships.reviews.links.related", u.Relationships.Reviews.Links.Related)
+				q.Set("relationships.reviews.links.next", u.Relationships.Reviews.Links.Next)
+				q.Set("relationships.reviews.links.last", u.Relationships.Reviews.Links.Last)
+			}
+		}
+		if u.Relationships.MediaRelationships != nil {
+			if u.Relationships.MediaRelationships.Links != nil {
+				q.Set("relationships.mediaRelationships.links.self", u.Relationships.MediaRelationships.Links.Self)
+				q.Set("relationships.mediaRelationships.links.related", u.Relationships.MediaRelationships.Links.Related)
+				q.Set("relationships.mediaRelationships.links.next", u.Relationships.MediaRelationships.Links.Next)
+				q.Set("relationships.mediaRelationships.links.last", u.Relationships.MediaRelationships.Links.Last)
+			}
+		}
+		if u.Relationships.Characters != nil {
+			if u.Relationships.Characters.Links != nil {
+				q.Set("relationships.characters.links.self", u.Relationships.Characters.Links.Self)
+				q.Set("relationships.characters.links.related", u.Relationships.Characters.Links.Related)
+				q.Set("relationships.characters.links.next", u.Relationships.Characters.Links.Next)
+				q.Set("relationships.characters.links.last", u.Relationships.Characters.Links.Last)
+			}
+		}
+		if u.Relationships.Staff != nil {
+			if u.Relationships.Staff.Links != nil {
+				q.Set("relationships.staff.links.self", u.Relationships.Staff.Links.Self)
+				q.Set("relationships.staff.links.related", u.Relationships.Staff.Links.Related)
+				q.Set("relationships.staff.links.next", u.Relationships.Staff.Links.Next)
+				q.Set("relationships.staff.links.last", u.Relationships.Staff.Links.Last)
+			}
+		}
+		if u.Relationships.Productions != nil {
+			if u.Relationships.Productions.Links != nil {
+				q.Set("relationships.productions.links.self", u.Relationships.Productions.Links.Self)
+				q.Set("relationships.productions.links.related", u.Relationships.Productions.Links.Related)
+				q.Set("relationships.productions.links.next", u.Relationships.Productions.Links.Next)
+				q.Set("relationships.productions.links.last", u.Relationships.Productions.Links.Last)
+			}
+		}
+		if u.Relationships.Quotes != nil {
+			if u.Relationships.Quotes.Links != nil {
+				q.Set("relationships.quotes.links.self", u.Relationships.Quotes.Links.Self)
+				q.Set("relationships.quotes.links.related", u.Relationships.Quotes.Links.Related)
+				q.Set("relationships.quotes.links.next", u.Relationships.Quotes.Links.Next)
+				q.Set("relationships.quotes.links.last", u.Relationships.Quotes.Links.Last)
+			}
+		}
+		if u.Relationships.Episodes != nil {
+			if u.Relationships.Episodes.Links != nil {
+				q.Set("relationships.episodes.links.self", u.Relationships.Episodes.Links.Self)
+				q.Set("relationships.episodes.links.related", u.Relationships.Episodes.Links.Related)
+				q.Set("relationships.episodes.links.next", u.Relationships.Episodes.Links.Next)
+				q.Set("relationships.episodes.links.last", u.Relationships.Episodes.Links.Last)
+			}
+		}
+		if u.Relationships.StreamingLinks != nil {
+			if u.Relationships.StreamingLinks.Links != nil {
+				q.Set("relationships.streamingLinks.links.self", u.Relationships.StreamingLinks.Links.Self)
+				q.Set("relationships.streamingLinks.links.related", u.Relationships.StreamingLinks.Links.Related)
+				q.Set("relationships.streamingLinks.links.next", u.Relationships.StreamingLinks.Links.Next)
+				q.Set("relationships.streamingLinks.links.last", u.Relationships.StreamingLinks.Links.Last)
+			}
+		}
+		if u.Relationships.AnimeProductions != nil {
+			if u.Relationships.AnimeProductions.Links != nil {
+				q.Set("relationships.animeProductions.links.self", u.Relationships.AnimeProductions.Links.Self)
+				q.Set("relationships.animeProductions.links.related", u.Relationships.AnimeProductions.Links.Related)
+				q.Set("relationships.animeProductions.links.next", u.Relationships.AnimeProductions.Links.Next)
+				q.Set("relationships.animeProductions.links.last", u.Relationships.AnimeProductions.Links.Last)
+			}
+		}
+		if u.Relationships.AnimeCharacters != nil {
+			if u.Relationships.AnimeCharacters.Links != nil {
+				q.Set("relationships.animeCharacters.links.self", u.Relationships.AnimeCharacters.Links.Self)
+				q.Set("relationships.animeCharacters.links.related", u.Relationships.AnimeCharacters.Links.Related)
+				q.Set("relationships.animeCharacters.links.next", u.Relationships.AnimeCharacters.Links.Next)
+				q.Set("relationships.animeCharacters.links.last", u.Relationships.AnimeCharacters.Links.Last)
+			}
+		}
+		if u.Relationships.AnimeStaff != nil {
+			if u.Relationships.AnimeStaff.Links != nil {
+				q.Set("relationships.animeStaff.links.self", u.Relationships.AnimeStaff.Links.Self)
+				q.Set("relationships.animeStaff.links.related", u.Relationships.AnimeStaff.Links.Related)
+				q.Set("relationships.animeStaff.links.next", u.Relationships.AnimeStaff.Links.Next)
+				q.Set("relationships.animeStaff.links.last", u.Relationships.AnimeStaff.Links.Last)
+			}
+		}
+	}
+	return q
+}
+
+// QueryString returns http url.Values of KitsuAnimeResponse
+func (u *KitsuAnimeResponse) QueryString() url.Values {
+	var q = url.Values{}
 	return q
 }

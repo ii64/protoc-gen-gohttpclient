@@ -37,3 +37,103 @@ service GreetService {
         };
     }
 }
+
+
+
+message KitsuAnimeRequest {
+    // page[limit], page[offset]
+    map<string, string> page = 1;
+}
+message KitsuAnimeImageDimension {
+    int32 width = 1;
+    int32 height = 2;
+}
+message KitsuAnimeImageMeta {
+    map<string, KitsuAnimeImageDimension> dimensions = 1;
+}
+message KitsuAnimeImage {
+    string tiny = 1;
+    string small = 2;
+    string medium = 3;
+    string large = 4;
+    string original = 5;
+    KitsuAnimeImageMeta meta = 6;
+}
+message KitsuAnimeAttributes {
+    string createdAt = 1;
+    string updatedAt = 2;
+    string slug = 3;
+    string synopsis = 4;
+    string description = 5;
+    int32 coverImageTopOffset = 6;
+    map<string, string> titles = 7;
+    string canonicalTitle = 8;
+    repeated string abbreviatedTitles = 9;
+    string averageRating = 10;
+    map<string, string> ratingFrequencies = 11;
+    int64 userCount = 12;
+    int64 favoritesCount = 13;
+    string startDate = 14;
+    string endDate = 15;
+    string nextRelease = 16;
+    int32 popularityRank = 17;
+    int32 ratingRank = 18;
+    string ageRating = 19;
+    string ageRatingGuide = 20;
+    string subtype = 21;
+    string status = 22;
+    string tba = 23; // i think orig: null
+    KitsuAnimeImage posterImage = 24;
+    KitsuAnimeImage coverImage = 25;
+    int32 episodeCount = 26;
+    int32 episodeLength = 27;
+    int32 totalLength = 28;
+    string youtubeVideoId = 29;
+    string showType = 30;
+    bool nsfw = 31;
+}
+message KitsuAnimeLinks {
+    string self = 1;
+    string related = 2;
+    string next = 3;
+    string last = 4;
+}
+message KitsuAnimeRelationKitsuAnimeItemItem {
+    KitsuAnimeLinks links = 1;
+}
+message KitsuAnimeRelationships {
+    KitsuAnimeRelationKitsuAnimeItemItem genres = 1;
+    KitsuAnimeRelationKitsuAnimeItemItem categories = 2;
+    KitsuAnimeRelationKitsuAnimeItemItem castings = 3;
+    KitsuAnimeRelationKitsuAnimeItemItem installments = 4;
+    KitsuAnimeRelationKitsuAnimeItemItem mappings = 5;
+    KitsuAnimeRelationKitsuAnimeItemItem reviews = 6;
+    KitsuAnimeRelationKitsuAnimeItemItem mediaRelationships = 7;
+    KitsuAnimeRelationKitsuAnimeItemItem characters = 8;
+    KitsuAnimeRelationKitsuAnimeItemItem staff = 9;
+    KitsuAnimeRelationKitsuAnimeItemItem productions = 10;
+    KitsuAnimeRelationKitsuAnimeItemItem quotes = 11;
+    KitsuAnimeRelationKitsuAnimeItemItem episodes = 12;
+    KitsuAnimeRelationKitsuAnimeItemItem streamingLinks = 13;
+    KitsuAnimeRelationKitsuAnimeItemItem animeProductions = 14;
+    KitsuAnimeRelationKitsuAnimeItemItem animeCharacters = 15;
+    KitsuAnimeRelationKitsuAnimeItemItem animeStaff = 16;
+}
+message KitsuAnimeItem {
+    string id = 1;
+    string type = 2;
+    KitsuAnimeLinks links = 3;
+    KitsuAnimeAttributes attributes = 4;
+    KitsuAnimeRelationships relationships = 5;
+}
+message KitsuAnimeResponse {
+    repeated KitsuAnimeItem data = 1;
+}
+
+service KitsuService {
+    rpc getAnime(KitsuAnimeRequest) returns (KitsuAnimeResponse) {
+        option (google.api.http) = {
+            get: "/api/edge/anime"
+        };
+    }
+}

@@ -7,7 +7,6 @@ import (
 	options "google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 var (
@@ -28,6 +27,10 @@ var (
 	// protoPackage     = protogen.GoImportPath("google.golang.org/protobuf/proto")
 	protoPackage     = protogen.GoImportPath("github.com/golang/protobuf/proto")
 	protojsonPackage = protogen.GoImportPath("google.golang.org/protobuf/encoding/protojson")
+)
+
+var (
+	msgFieldIgnore = map[string][]string{}
 )
 
 func GenerateFile(p *protogen.Plugin, f *protogen.File) (*protogen.GeneratedFile, error) {
@@ -58,6 +61,12 @@ func GenerateFile(p *protogen.Plugin, f *protogen.File) (*protogen.GeneratedFile
 			return nil, err
 		}
 	}
+
+	for _, msg := range f.Messages {
+		if err := generateMessageUtil(g, msg); err != nil {
+			return nil, err
+		}
+	}
 	return g, nil
 }
 
@@ -71,11 +80,8 @@ func generateService(g *protogen.GeneratedFile, service *protogen.Service) (err 
 			return err
 		}
 	}
-
 	return nil
 }
-
-func generatStructToQueryStringUtil() {}
 
 func generateErrors(g *protogen.GeneratedFile, service *protogen.Service) {
 	g.P("var (")
@@ -187,10 +193,14 @@ func newBinding(method *protogen.Method, opts *options.HttpRule) (*Binding, erro
 	}, nil
 }
 
-func extractMessageField(msg *protogen.Message) (r map[string]*protogen.Field) {
+func extractMessageField(msg *protogen.Message) (r map[string]*protogen.Field, order []string) {
 	r = map[string]*protogen.Field{}
+	// fix map key order inconsistency
+	order = []string{}
 	for i := 0; i < msg.Desc.Fields().Len(); i++ {
-		r[string(msg.Fields[i].Desc.Name())] = msg.Fields[i]
+		k := string(msg.Fields[i].Desc.Name())
+		r[k] = msg.Fields[i]
+		order = append(order, k)
 	}
 	return
 }
@@ -214,7 +224,8 @@ func generateMethod(g *protogen.GeneratedFile, method *protogen.Method) (err err
 			return err
 		}
 
-		inputField := extractMessageField(method.Input)
+		// field order is not used
+		inputField, _ := extractMessageField(method.Input)
 
 		body := "b"
 		if b.HTTPMethod == "GET" {
@@ -320,26 +331,7 @@ func generateMethod(g *protogen.GeneratedFile, method *protogen.Method) (err err
 					elVFields = append(elVFields, func() {
 						g.P("// ", fmt.Sprintf("%+#v", f.Desc.Kind()), " | ", f.Desc.Message())
 						var mod func(string) string
-						switch f.Desc.Kind() {
-						case protoreflect.StringKind:
-							mod = func(s string) string {
-								return g.QualifiedGoIdent(urlPackage.Ident("QueryEscape")) + "(" + s + ")"
-							}
-						case protoreflect.Int64Kind, protoreflect.Int32Kind:
-							t := genTmpVar()
-							mod = func(s string) string {
-								g.P(t, " := ", strconvPackage.Ident("FormatInt"), "(", s, ", 10)")
-								return t
-							}
-						case protoreflect.EnumKind:
-							mod = func(s string) string {
-								return s + ".String()"
-							}
-						default:
-							mod = func(s string) string {
-								return s
-							}
-						}
+						mod = generateFieldModifier(g, genTmpVar, f.Desc.Kind(), true)
 						g.P("", varName, " = ", mod("in."+f.GoName)) //
 					})
 					declVFields = append(declVFields, varName)
@@ -386,6 +378,11 @@ func generateMethod(g *protogen.GeneratedFile, method *protogen.Method) (err err
 		g.P("if err != nil {")
 		g.P("return")
 		g.P("}")
+
+		if len(inputField) > 0 {
+			// set query string
+			g.P("req.URL.RawQuery = in.QueryString().Encode()")
+		}
 
 		if body != "" {
 			g.P("req.Header.Set(\"Content-Type\", \"application/json\")")

@@ -3,7 +3,7 @@ package main
 import "google.golang.org/protobuf/compiler/protogen"
 
 var (
-	genVersion = "v1.0.0"
+	genVersion = "v1.1.0"
 )
 
 func main() {

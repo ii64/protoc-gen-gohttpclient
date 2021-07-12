@@ -1,3 +1,5 @@
+
+
 generate:
 	protoc \
 		-I . \

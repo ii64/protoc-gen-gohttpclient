@@ -20,6 +20,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	spew.Printf("%#+v\n", res)
+	spew.Dump(res)
 	fmt.Printf("Done\n")
 }

@@ -7,18 +7,32 @@ import "google/api/annotations.proto";
 
 message GetPostRequest {
     int64 id = 1;
+    string s = 23;
+    Nest j = 33;
+    bool latest =2;
 }
 message GetPostResponse {
     int64 userId = 1;
     int64 id = 2;
     string title = 3;
     string body = 4;
+    GetPostRequest req = 5;
+    Nest t = 8;
+    bool latest = 122;
+}
+message Nest {
+    Nest2 c = 1;
+    string sd = 23;
+}
+message Nest2 {
+    int32 k = 3;
+    string heu = 9;
 }
 
 service GreetService {
     rpc getPost(GetPostRequest) returns (GetPostResponse) {
         option (google.api.http) = {
-            get: "/posts/{id=*}"
+            get: "/posts/{id}"
             body: ""
         };
     }

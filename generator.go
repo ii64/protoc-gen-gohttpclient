@@ -8,7 +8,8 @@ import (
 )
 
 var (
-	genQueryOptional = true
+	genQueryOptional    = true
+	genUnmarshalOptions = "DiscardUnknown: true"
 )
 
 func generateFieldModifier(g *protogen.GeneratedFile, genTmpVar func() string, kind protoreflect.Kind, queryEscape bool) (mod func(string) string) {
@@ -56,6 +57,59 @@ func generateMessageUtil(g *protogen.GeneratedFile, msg *protogen.Message) (err 
 	return
 }
 
+func generateMessageFieldForMapVMessage(g *protogen.GeneratedFile, msg *protogen.Message, genTmpVar func() string, accessorValue, addtKey, keyPrefix string) {
+	fields, order := extractMessageField(msg)
+	for _, fk := range order {
+		f, ok := fields[fk]
+		if !ok {
+			continue
+		}
+
+		addtKey = addtKey + "[" + string(f.Desc.Name()) + "]"
+		tt := f.Desc.Kind()
+		if tt == protoreflect.MessageKind {
+			accessorVal := accessorValue
+			if accessorVal != "" {
+				accessorVal = accessorVal + "." + f.GoName
+			}
+			g.P("if ", accessorValue, " != nil {")
+			generateMessageFieldForMapVMessage(g, f.Message, genTmpVar, accessorVal, addtKey, keyPrefix)
+			g.P("}")
+			continue
+		}
+		mod := generateFieldModifier(g, genTmpVar, tt, false)
+		g.P("q.Set(\"", keyPrefix, "[\" + k + \"]", addtKey, "\", ", mod(accessorValue+"."+f.GoName), ")") // ", tt)
+	}
+}
+func generateMessageFieldForMap(g *protogen.GeneratedFile, msg *protogen.Message, genTmpVar func() string, accessorValue, keyPrefix string) (cont bool) {
+	fs, fo := extractMessageField(msg) // key, value
+	fk, fv := fs[fo[0]], fs[fo[1]]
+	// cant have map or list as key
+	if fk.Desc.IsMap() || fk.Desc.IsList() {
+		return true
+	}
+	if fv.Desc.IsMap() || fv.Desc.IsList() {
+		return true
+	}
+	cInp := accessorValue
+
+	g.P("for k, v := range ", cInp, " {")
+	fVal := "v"
+	fName := keyPrefix
+	addtKey := ""
+
+	tt := fv.Desc.Kind()
+	if tt == protoreflect.MessageKind {
+		accessorValue = "v"
+		generateMessageFieldForMapVMessage(g, fv.Message, genTmpVar, accessorValue, addtKey, fName)
+	} else {
+		mod := generateFieldModifier(g, genTmpVar, tt, false)
+		g.P("q.Set(\"", fName, "[\" + k + \"]", addtKey, "\", ", mod(fVal), ")")
+	}
+	g.P("}")
+	return false
+}
+
 func generateMessageFieldsURLSet(g *protogen.GeneratedFile, msg *protogen.Message, genTmpVar func() string, accessorValue, keyPrefix string) {
 	fields, fOrder := extractMessageField(msg)
 	// wip: ignore fields that already used in url path
@@ -79,20 +133,28 @@ func generateMessageFieldsURLSet(g *protogen.GeneratedFile, msg *protogen.Messag
 		if accessorValue != "" {
 			inp = accessorValue + "." + inp
 		}
+		cInp := "u." + inp
+
 		tt := f.Desc.Kind()
 		switch tt {
 		case protoreflect.MessageKind:
 			if genQueryOptional {
-				g.P("if ", "u."+inp, " != nil {")
+				g.P("if ", cInp, " != nil {")
 			}
-			generateMessageFieldsURLSet(g, f.Message, genTmpVar, inp, fName)
+			if f.Desc.IsMap() {
+				if generateMessageFieldForMap(g, f.Message, genTmpVar, cInp, fName) {
+					continue
+				}
+			} else {
+				generateMessageFieldsURLSet(g, f.Message, genTmpVar, inp, fName)
+			}
 			if genQueryOptional {
 				g.P("}")
 			}
 			continue
 		}
 		mod := generateFieldModifier(g, genTmpVar, tt, false)
-		g.P("q.Set(\"", fName, "\", ", mod("u."+inp), ")")
+		g.P("q.Set(\"", fName, "\", ", mod(cInp), ")")
 	}
 }
 

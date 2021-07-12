@@ -56,6 +56,8 @@ func GenerateFile(p *protogen.Plugin, f *protogen.File) (*protogen.GeneratedFile
 	g.P()
 	g.P("package ", f.GoPackageName)
 
+	generateErrors(g)
+
 	for _, service := range f.Services {
 		if err := generateService(g, service); err != nil {
 			return nil, err
@@ -71,7 +73,6 @@ func GenerateFile(p *protogen.Plugin, f *protogen.File) (*protogen.GeneratedFile
 }
 
 func generateService(g *protogen.GeneratedFile, service *protogen.Service) (err error) {
-	generateErrors(g, service)
 	generateServiceClientInterface(g, service)
 	generateServiceConstructor(g, service)
 
@@ -83,7 +84,7 @@ func generateService(g *protogen.GeneratedFile, service *protogen.Service) (err 
 	return nil
 }
 
-func generateErrors(g *protogen.GeneratedFile, service *protogen.Service) {
+func generateErrors(g *protogen.GeneratedFile) {
 	g.P("var (")
 	g.P("ErrMethodHasNoHTTPClientSupport = ", errorsPackage.Ident("New"), "(\"no google.api.http option for this method\")")
 	g.P(")")
@@ -412,8 +413,9 @@ func generateMethod(g *protogen.GeneratedFile, method *protogen.Method) (err err
 		g.P("  if err = ", protoPackage.Ident("Unmarshal"), "(body, &rs); err != nil {")
 		g.P("    return")
 		g.P("  }")
-		g.P("case \"application/json\":")
-		g.P("  if err = ", protojsonPackage.Ident("Unmarshal"), "(body, &rs); err != nil {")
+		g.P("case \"application/json\", \"application/vnd.api+json\":")
+		g.P("  pj := ", protojsonPackage.Ident("UnmarshalOptions"), "{", genUnmarshalOptions, "}")
+		g.P("  if err = pj.Unmarshal(body, &rs); err != nil {")
 		g.P("    return")
 		g.P("  }")
 		g.P("default:")

@@ -14,96 +14,11 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// GreetServiceClient is the client API for GreetService service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type GreetServiceClient interface {
-	GetPost(ctx context.Context, in *GetPostRequest, opts ...grpc.CallOption) (*GetPostResponse, error)
-}
-
-type greetServiceClient struct {
-	cc grpc.ClientConnInterface
-}
-
-func NewGreetServiceClient(cc grpc.ClientConnInterface) GreetServiceClient {
-	return &greetServiceClient{cc}
-}
-
-func (c *greetServiceClient) GetPost(ctx context.Context, in *GetPostRequest, opts ...grpc.CallOption) (*GetPostResponse, error) {
-	out := new(GetPostResponse)
-	err := c.cc.Invoke(ctx, "/myservice.GreetService/getPost", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// GreetServiceServer is the server API for GreetService service.
-// All implementations must embed UnimplementedGreetServiceServer
-// for forward compatibility
-type GreetServiceServer interface {
-	GetPost(context.Context, *GetPostRequest) (*GetPostResponse, error)
-	mustEmbedUnimplementedGreetServiceServer()
-}
-
-// UnimplementedGreetServiceServer must be embedded to have forward compatible implementations.
-type UnimplementedGreetServiceServer struct {
-}
-
-func (UnimplementedGreetServiceServer) GetPost(context.Context, *GetPostRequest) (*GetPostResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetPost not implemented")
-}
-func (UnimplementedGreetServiceServer) mustEmbedUnimplementedGreetServiceServer() {}
-
-// UnsafeGreetServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to GreetServiceServer will
-// result in compilation errors.
-type UnsafeGreetServiceServer interface {
-	mustEmbedUnimplementedGreetServiceServer()
-}
-
-func RegisterGreetServiceServer(s grpc.ServiceRegistrar, srv GreetServiceServer) {
-	s.RegisterService(&GreetService_ServiceDesc, srv)
-}
-
-func _GreetService_GetPost_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetPostRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(GreetServiceServer).GetPost(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/myservice.GreetService/getPost",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GreetServiceServer).GetPost(ctx, req.(*GetPostRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-// GreetService_ServiceDesc is the grpc.ServiceDesc for GreetService service.
-// It's only intended for direct use with grpc.RegisterService,
-// and not to be introspected or modified (even as a copy)
-var GreetService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "myservice.GreetService",
-	HandlerType: (*GreetServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "getPost",
-			Handler:    _GreetService_GetPost_Handler,
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "service.proto",
-}
-
 // KitsuServiceClient is the client API for KitsuService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type KitsuServiceClient interface {
+	GetAnimeList(ctx context.Context, in *KitsuAnimeListRequest, opts ...grpc.CallOption) (*KitsuAnimeListResponse, error)
 	GetAnime(ctx context.Context, in *KitsuAnimeRequest, opts ...grpc.CallOption) (*KitsuAnimeResponse, error)
 }
 
@@ -113,6 +28,15 @@ type kitsuServiceClient struct {
 
 func NewKitsuServiceClient(cc grpc.ClientConnInterface) KitsuServiceClient {
 	return &kitsuServiceClient{cc}
+}
+
+func (c *kitsuServiceClient) GetAnimeList(ctx context.Context, in *KitsuAnimeListRequest, opts ...grpc.CallOption) (*KitsuAnimeListResponse, error) {
+	out := new(KitsuAnimeListResponse)
+	err := c.cc.Invoke(ctx, "/myservice.KitsuService/getAnimeList", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *kitsuServiceClient) GetAnime(ctx context.Context, in *KitsuAnimeRequest, opts ...grpc.CallOption) (*KitsuAnimeResponse, error) {
@@ -128,6 +52,7 @@ func (c *kitsuServiceClient) GetAnime(ctx context.Context, in *KitsuAnimeRequest
 // All implementations must embed UnimplementedKitsuServiceServer
 // for forward compatibility
 type KitsuServiceServer interface {
+	GetAnimeList(context.Context, *KitsuAnimeListRequest) (*KitsuAnimeListResponse, error)
 	GetAnime(context.Context, *KitsuAnimeRequest) (*KitsuAnimeResponse, error)
 	mustEmbedUnimplementedKitsuServiceServer()
 }
@@ -136,6 +61,9 @@ type KitsuServiceServer interface {
 type UnimplementedKitsuServiceServer struct {
 }
 
+func (UnimplementedKitsuServiceServer) GetAnimeList(context.Context, *KitsuAnimeListRequest) (*KitsuAnimeListResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAnimeList not implemented")
+}
 func (UnimplementedKitsuServiceServer) GetAnime(context.Context, *KitsuAnimeRequest) (*KitsuAnimeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAnime not implemented")
 }
@@ -150,6 +78,24 @@ type UnsafeKitsuServiceServer interface {
 
 func RegisterKitsuServiceServer(s grpc.ServiceRegistrar, srv KitsuServiceServer) {
 	s.RegisterService(&KitsuService_ServiceDesc, srv)
+}
+
+func _KitsuService_GetAnimeList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(KitsuAnimeListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KitsuServiceServer).GetAnimeList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/myservice.KitsuService/getAnimeList",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KitsuServiceServer).GetAnimeList(ctx, req.(*KitsuAnimeListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _KitsuService_GetAnime_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -177,6 +123,10 @@ var KitsuService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "myservice.KitsuService",
 	HandlerType: (*KitsuServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "getAnimeList",
+			Handler:    _KitsuService_GetAnimeList_Handler,
+		},
 		{
 			MethodName: "getAnime",
 			Handler:    _KitsuService_GetAnime_Handler,

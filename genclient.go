@@ -10,7 +10,9 @@ import (
 )
 
 var (
-	// ioPackage      = protogen.GoImportPath("io")
+	libPackage = protogen.GoImportPath("github.com/ii64/protoc-gen-gohttpclient/lib")
+
+	ioPackage      = protogen.GoImportPath("io")
 	fmtPackage     = protogen.GoImportPath("fmt")
 	bytesPackage   = protogen.GoImportPath("bytes")
 	mimePackage    = protogen.GoImportPath("mime")
@@ -24,9 +26,11 @@ var (
 	errorsPackage = protogen.GoImportPath("github.com/pkg/errors")
 
 	grpcPackage = protogen.GoImportPath("google.golang.org/grpc")
+
 	// protoPackage     = protogen.GoImportPath("google.golang.org/protobuf/proto")
-	protoPackage     = protogen.GoImportPath("github.com/golang/protobuf/proto")
-	protojsonPackage = protogen.GoImportPath("google.golang.org/protobuf/encoding/protojson")
+	protoPackage        = protogen.GoImportPath("github.com/golang/protobuf/proto")
+	protojsonPackage    = protogen.GoImportPath("google.golang.org/protobuf/encoding/protojson")
+	protoreflectPackage = protogen.GoImportPath("google.golang.org/protobuf/reflect/protoreflect")
 )
 
 var (
@@ -56,7 +60,9 @@ func GenerateFile(p *protogen.Plugin, f *protogen.File) (*protogen.GeneratedFile
 	g.P()
 	g.P("package ", f.GoPackageName)
 
-	generateErrors(g)
+	// generateErrors(g)
+	// generateTypesAndDummy(g)
+	// generateResponseClientHandler(g)
 
 	for _, service := range f.Services {
 		if err := generateService(g, service); err != nil {
@@ -85,30 +91,50 @@ func generateService(g *protogen.GeneratedFile, service *protogen.Service) (err 
 }
 
 func generateErrors(g *protogen.GeneratedFile) {
-	g.P("var (")
-	g.P("ErrMethodHasNoHTTPClientSupport = ", errorsPackage.Ident("New"), "(\"no google.api.http option for this method\")")
-	g.P(")")
+	// g.P("var (")
+	// g.P("ErrMethodHasNoHTTPClientSupport = ", errorsPackage.Ident("New"), "(\"no google.api.http option for this method\")")
+	// g.P("ErrMethodHasNoHTTPBindingSupport = ", errorsPackage.Ident("New"), "(\"no binding specified for google.api.HttpRule\")")
+	// g.P(")")
+}
+
+func generateTypesAndDummy(g *protogen.GeneratedFile) {
+	// g.P("type HTTPClientService struct {")
+	// g.P("   baseURL", " string")
+	// g.P("   client", " *", httpPackage.Ident("Client"))
+	// g.P("   pbDiscardUnknown bool")
+	// g.P("   httpResponseValidator ", libPackage.Ident("HTTPResponseValidatorHandler"))
+	// g.P("   responseValidator ", libPackage.Ident("HTTPClientMethodValidatorHandler"))
+	// g.P("}")
 }
 
 func generateServiceClientInterface(g *protogen.GeneratedFile, service *protogen.Service) {
-	g.P("// ", service.GoName, "HTTPClient is the http client.")
+	g.P("// ", service.GoName, "HTTPClient is http service client.")
 	g.P("type ", service.GoName, "HTTPClient struct {")
-	g.P("   baseURL", " string")
-	g.P("   client", " *", httpPackage.Ident("Client"))
+	g.P("   ", libPackage.Ident("HTTPClientService"))
 	g.P("}")
 }
 
 func generateServiceConstructor(g *protogen.GeneratedFile, service *protogen.Service) {
 	funcName := "New" + service.GoName + "HTTPClient"
 	g.P("// ", funcName, " returns ", service.GoName, "HTTPClient")
-	g.P("func ", funcName, "(baseURL string, client *", httpPackage.Ident("Client"), ") *", service.GoName, "HTTPClient {")
+	g.P("func ", funcName, "(baseURL string, client *", httpPackage.Ident("Client"), ", addt ...", libPackage.Ident("HTTPServiceConstructorArg"), ") (s *", service.GoName, "HTTPClient) {")
 	g.P("    if client == nil {")
 	g.P("        client = ", httpPackage.Ident("DefaultClient"))
 	g.P("    }")
-	g.P("    return &", service.GoName, "HTTPClient{")
-	g.P("        baseURL: baseURL,")
-	g.P("        client: client,")
+	g.P("    defer func() {")
+	g.P("       for _, f := range addt {")
+	g.P("         f(&s.HTTPClientService)")
+	g.P("       }")
+	g.P("    }()")
+	g.P("    s = &", service.GoName, "HTTPClient{}")
+	g.P("    s.HTTPClientService = ", libPackage.Ident("HTTPClientService"), "{")
+	g.P("       BaseURL: baseURL,")
+	g.P("       Client: client,")
+	g.P("       PbDiscardUnknown: false,") // give errors when response is not have exact fields with message
+	g.P("       HttpResponseValidator: ", libPackage.Ident("DefaultHTTPResponseValidator"), ",")
+	g.P("       ResponseValidator: ", libPackage.Ident("DefaultMethodValidator"), ",")
 	g.P("    }")
+	g.P("    return")
 	g.P("}")
 }
 
@@ -172,7 +198,7 @@ func newBinding(method *protogen.Method, opts *options.HttpRule) (*Binding, erro
 		httpMethod = custom.Kind
 		pathTemplate = custom.Path
 	default:
-		fmt.Printf("No patternn specified in google.api.HttpRule: %s\n", method.Desc.Name())
+		// fmt.Printf("No patternn specified in google.api.HttpRule: %s\n", method.Desc.Name())
 		return nil, nil
 	}
 
@@ -215,14 +241,20 @@ func generateMethod(g *protogen.GeneratedFile, method *protogen.Method) (err err
 		"(ctx ", contextPackage.Ident("Context"), ", ", "in *", method.Input.GoIdent.GoName, ", opts ...", grpcPackage.Ident("CallOption"), ")",
 		" (out *", method.Output.GoIdent.GoName, ", err error)",
 		"{")
-
+	defer func() {
+		g.P("}")
+	}()
 	opts, err := extractAPIOptions(method)
 	if err != nil || opts == nil {
-		g.P("return nil, ErrMethodHasNoHTTPClientSupport")
+		g.P("return nil, ", libPackage.Ident("ErrMethodHasNoHTTPClientSupport"))
 	} else {
 		var b *Binding
 		if b, err = newBinding(method, opts); err != nil {
 			return err
+		}
+		if b == nil {
+			g.P("return nil, ", errorsPackage.Ident("Wrap"), "(", libPackage.Ident("ErrMethodHasNoHTTPBindingSupport"), ", \"", method.Desc.Name(), "\")")
+			return
 		}
 
 		// field order is not used
@@ -331,8 +363,7 @@ func generateMethod(g *protogen.GeneratedFile, method *protogen.Method) (err err
 					var f = inputField[t.term.fieldName]
 					elVFields = append(elVFields, func() {
 						g.P("// ", fmt.Sprintf("%+#v", f.Desc.Kind()), " | ", f.Desc.Message())
-						var mod func(string) string
-						mod = generateFieldModifier(g, genTmpVar, f.Desc.Kind(), true)
+						mod := generateFieldModifier(g, genTmpVar, f.Desc.Kind(), true)
 						g.P("", varName, " = ", mod("in."+f.GoName)) //
 					})
 					declVFields = append(declVFields, varName)
@@ -365,7 +396,7 @@ func generateMethod(g *protogen.GeneratedFile, method *protogen.Method) (err err
 
 		g.P("var req *", httpPackage.Ident("Request"))
 		urlAddt := strings.Join(url, "+")
-		urlx := "c.baseURL"
+		urlx := "c.BaseURL"
 		if urlAddt != "" {
 			urlx = urlx + "+" + urlAddt
 		}
@@ -397,32 +428,56 @@ func generateMethod(g *protogen.GeneratedFile, method *protogen.Method) (err err
 		// g.P("")
 		// g.P("}")
 
-		g.P("if res, err = c.client.Do(req); err != nil {")
+		g.P("if res, err = c.Client.Do(req); err != nil {")
 		g.P("return")
 		g.P("}")
+
+		g.P("if err = c.HttpResponseValidator(res); err != nil {")
+		g.P("return")
+		g.P("}")
+
 		g.P("defer res.Body.Close()")
 		g.P("var rs ", method.Output.GoIdent.GoName)
 
-		g.P("var body []byte")
-		g.P("if body, err = ", ioutilPackage.Ident("ReadAll"), "(res.Body); err != nil {")
+		g.P("if err = c.ResponseHTTPClientHandler(res, &rs); err != nil {")
 		g.P("  return")
 		g.P("}")
 
-		g.P("switch ct, _, _ := ", mimePackage.Ident("ParseMediaType"), "(res.Header.Get(\"Content-Type\")); ct {")
-		g.P("case \"application/protobuf\", \"application/x-protobuf\":")
-		g.P("  if err = ", protoPackage.Ident("Unmarshal"), "(body, &rs); err != nil {")
-		g.P("    return")
-		g.P("  }")
-		g.P("case \"application/json\", \"application/vnd.api+json\":")
-		g.P("  pj := ", protojsonPackage.Ident("UnmarshalOptions"), "{", genUnmarshalOptions, "}")
-		g.P("  if err = pj.Unmarshal(body, &rs); err != nil {")
-		g.P("    return")
-		g.P("  }")
-		g.P("default:")
-		g.P("  return nil, ", fmtPackage.Ident("Errorf"), "(\"unknown response content type %q\", ct)")
-		g.P("}")
+		if genUseValidator {
+			g.P("if f := c.ResponseValidator; f != nil {")
+			g.P("  if err = f(&rs); err != nil {")
+			g.P("    return")
+			g.P("  }")
+			g.P("}")
+		}
 		g.P("return &rs, nil")
 	}
-	g.P("}")
 	return nil
+}
+
+func generateResponseClientHandler(g *protogen.GeneratedFile) {
+	g.P("func responseHttpClientHandler(res *", httpPackage.Ident("Response"), ", dst ", libPackage.Ident("ProtoMessageIface"), ") (err error) {")
+	g.P("  var body []byte")
+	g.P("  if body, err = ", ioutilPackage.Ident("ReadAll"), "(res.Body); err != nil {")
+	g.P("    return")
+	g.P("  }")
+	g.P("  var ct string")
+	g.P("  if ct, _, err = ", mimePackage.Ident("ParseMediaType"), "(res.Header.Get(\"Content-Type\")); err != nil {")
+	g.P("    return")
+	g.P("  }")
+	g.P("  switch ct {")
+	g.P("  case \"application/protobuf\", \"application/x-protobuf\":")
+	g.P("    if err = ", protoPackage.Ident("Unmarshal"), "(body, dst); err != nil {")
+	g.P("      return")
+	g.P("    }")
+	g.P("  case \"application/json\", \"application/vnd.api+json\":")
+	g.P("    pj := ", protojsonPackage.Ident("UnmarshalOptions"), "{", genUnmarshalOptions, "}")
+	g.P("    if err = pj.Unmarshal(body, dst); err != nil {")
+	g.P("      return")
+	g.P("    }")
+	g.P("  default:")
+	g.P("    return ", fmtPackage.Ident("Errorf"), "(\"unknown response content type %q\", ct)")
+	g.P("  }")
+	g.P("  return")
+	g.P("}")
 }

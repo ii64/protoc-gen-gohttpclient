@@ -8,8 +8,10 @@ import (
 )
 
 var (
+	genBoolUseInt       = false
 	genQueryOptional    = true
 	genUnmarshalOptions = "DiscardUnknown: true"
+	genUseValidator     = true // use go-validator https://github.com/asaskevich/govalidator
 )
 
 func generateFieldModifier(g *protogen.GeneratedFile, genTmpVar func() string, kind protoreflect.Kind, queryEscape bool) (mod func(string) string) {
@@ -24,9 +26,15 @@ func generateFieldModifier(g *protogen.GeneratedFile, genTmpVar func() string, k
 	case protoreflect.BoolKind:
 		mod = func(s string) string {
 			t := genTmpVar()
-			g.P(t, " := ", "\"false\"")
+			bf := "false"
+			bt := "true"
+			if genBoolUseInt {
+				bf = "0"
+				bt = "1"
+			}
+			g.P(t, " := ", "\"", bf, "\"")
 			g.P("if ", s, "{")
-			g.P(t, " = \"true\"")
+			g.P(t, " = \"", bt, "\"")
 			g.P("}")
 			return t
 		}
@@ -64,8 +72,6 @@ func generateMessageFieldForMapVMessage(g *protogen.GeneratedFile, msg *protogen
 		if !ok {
 			continue
 		}
-
-		addtKey = addtKey + "[" + string(f.Desc.Name()) + "]"
 		tt := f.Desc.Kind()
 		if tt == protoreflect.MessageKind {
 			accessorVal := accessorValue
@@ -78,7 +84,7 @@ func generateMessageFieldForMapVMessage(g *protogen.GeneratedFile, msg *protogen
 			continue
 		}
 		mod := generateFieldModifier(g, genTmpVar, tt, false)
-		g.P("q.Set(\"", keyPrefix, "[\" + k + \"]", addtKey, "\", ", mod(accessorValue+"."+f.GoName), ")") // ", tt)
+		g.P("q.Set(\"", keyPrefix, "[\" + k + \"]", addtKey+"["+string(f.Desc.Name())+"]", "\", ", mod(accessorValue+"."+f.GoName), ") // ", tt)
 	}
 }
 func generateMessageFieldForMap(g *protogen.GeneratedFile, msg *protogen.Message, genTmpVar func() string, accessorValue, keyPrefix string) (cont bool) {

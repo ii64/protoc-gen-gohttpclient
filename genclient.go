@@ -428,7 +428,7 @@ func generateMethod(g *protogen.GeneratedFile, method *protogen.Method) (err err
 		// g.P("")
 		// g.P("}")
 
-		g.P("if res, err = c.Client.Do(req); err != nil {")
+		g.P("if res, err = c.Do(req); err != nil {")
 		g.P("return")
 		g.P("}")
 

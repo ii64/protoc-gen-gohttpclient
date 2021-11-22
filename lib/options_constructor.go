@@ -1,7 +1,9 @@
 package lib
 
-func WithIgnoreUnknownField(cs *HTTPClientService) {
-	cs.PbDiscardUnknown = true
+func WithIgnoreUnknownField() HTTPServiceConstructorArg {
+	return func(cs *HTTPClientService) {
+		cs.PbDiscardUnknown = true
+	}
 }
 
 func WithHTTPRequestPreflight(f HTTPRequestPreflightHandler) HTTPServiceConstructorArg {

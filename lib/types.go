@@ -31,9 +31,11 @@ type HTTPClientService struct {
 }
 
 func (c HTTPClientService) Do(req *http.Request) (res *http.Response, err error) {
-	req, err = c.HttpRequestPreflight(req)
-	if err != nil {
-		return
+	if f := c.HttpRequestPreflight; f != nil {
+		req, err = c.HttpRequestPreflight(req)
+		if err != nil {
+			return
+		}
 	}
 	return c.Client.Do(req)
 }

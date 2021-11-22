@@ -131,6 +131,7 @@ func generateServiceConstructor(g *protogen.GeneratedFile, service *protogen.Ser
 	g.P("       BaseURL: baseURL,")
 	g.P("       Client: client,")
 	g.P("       PbDiscardUnknown: false,") // give errors when response is not have exact fields with message
+	g.P("       HttpRequestPreflight: ", libPackage.Ident("DefaultHTTPRequestPreflightHandler"), ",")
 	g.P("       HttpResponseValidator: ", libPackage.Ident("DefaultHTTPResponseValidator"), ",")
 	g.P("       ResponseValidator: ", libPackage.Ident("DefaultMethodValidator"), ",")
 	g.P("    }")

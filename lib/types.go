@@ -38,6 +38,10 @@ func (c HTTPClientService) Do(req *http.Request) (res *http.Response, err error)
 	return c.Client.Do(req)
 }
 
+func DefaultHTTPRequestPreflightHandler(req *http.Request) (*http.Request, error) {
+	return req, nil
+}
+
 func DefaultHTTPResponseValidator(res *http.Response) error {
 	return nil
 }

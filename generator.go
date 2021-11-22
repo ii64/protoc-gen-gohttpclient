@@ -48,6 +48,11 @@ func generateFieldModifier(g *protogen.GeneratedFile, genTmpVar func() string, k
 			}
 			return g.QualifiedGoIdent(strconvPackage.Ident("FormatInt")) + "(" + s + ", 10)"
 		}
+	case protoreflect.FloatKind:
+		mod = func(s string) string {
+			s = "float64(" + s + ")"
+			return g.QualifiedGoIdent(strconvPackage.Ident("FormatFloat")) + "(" + s + ", 'f', -1, 64)"
+		}
 	case protoreflect.EnumKind:
 		mod = func(s string) string {
 			return s + ".String()"

@@ -4,7 +4,7 @@ func WithIgnoreUnknownField(cs *HTTPClientService) {
 	cs.PbDiscardUnknown = true
 }
 
-func WithHTTPRequestPreflight(f HTTPRequestPreflightHandler) {
+func WithHTTPRequestPreflight(f HTTPRequestPreflightHandler) HTTPServiceConstructorArg {
 	return func(hs *HTTPClientService) {
 		hs.HttpRequestPreflight = f
 	}
